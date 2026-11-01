@@ -1,0 +1,37 @@
+# Openship deploy stack (CloudShift HP Mini Elite). TLS ends at the VPS Caddy; the Openship
+# edge forwards to the app on 9310. Every value comes from Openship service env.
+# EXACTLY ONE instance: one persistent browser profile per Hyperpure account.
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    shm_size: 1gb
+    # Chromium's own sandbox needs user namespaces, which Docker's default seccomp profile blocks.
+    security_opt:
+      - seccomp=unconfined
+    environment:
+      NODE_ENV: production
+      HOST: "0.0.0.0"
+      PORT: "9310"
+      DATA_DIR: /data
+      PUBLIC_ORIGIN: ${PUBLIC_ORIGIN}
+      HYPERPURE_MOBILE: ${HYPERPURE_MOBILE}
+      MCP_TOKEN: ${MCP_TOKEN}
+      OWNER_KEY: ${OWNER_KEY}
+      OUTLET_NAME: ${OUTLET_NAME:-}
+      OUTLET_ADDRESS: ${OUTLET_ADDRESS:-}
+    ports:
+      - "${APP_PORT:-9310}:9310"
+    volumes:
+      - hyperpure-data:/data
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:9310/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 90s
+    restart: unless-stopped
+
+volumes:
+  hyperpure-data:

@@ -300,7 +300,8 @@ app.all('/mcp', (_, res) => res.sendStatus(405));
 app.use((err, req, res, next) => res.status(400).json({ error: 'INVALID_REQUEST' }));
 await browser.start();
 await browser.check();
-const http = app.listen(9310, '127.0.0.1', () =>
+// Containers set HOST=0.0.0.0 so the proxy can reach the app; bare-metal installs keep loopback.
+const http = app.listen(9310, process.env.HOST || '127.0.0.1', () =>
   console.log(JSON.stringify({ event: 'service_started', port: 9310 })),
 );
 const timer = setInterval(() => {
