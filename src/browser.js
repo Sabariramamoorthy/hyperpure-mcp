@@ -35,7 +35,8 @@ export class HyperpureBrowser {
     await mkdir(this.config.dataDir, { recursive: true, mode: 0o700 });
     this.context = await chromium.launchPersistentContext(`${this.config.dataDir}/profile`, {
       headless: true,
-      chromiumSandbox: true,
+      // Only for containers whose runtime can't relax seccomp; isolation then relies on the container.
+      chromiumSandbox: process.env.CHROMIUM_SANDBOX !== 'false',
       viewport: { width: 1440, height: 1000 },
       locale: 'en-IN',
       timezoneId: 'Asia/Kolkata',

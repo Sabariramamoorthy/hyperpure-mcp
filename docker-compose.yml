@@ -7,11 +7,11 @@ services:
       context: .
       dockerfile: Dockerfile
     shm_size: 1gb
-    # Chromium's own sandbox needs user namespaces, which Docker's default seccomp profile blocks.
-    security_opt:
-      - seccomp=unconfined
     environment:
       NODE_ENV: production
+      # Chromium's sandbox needs user namespaces, which Docker's default seccomp profile blocks,
+      # and Openship does not apply security_opt. The browser runs as non-root pwuser instead.
+      CHROMIUM_SANDBOX: "false"
       HOST: "0.0.0.0"
       PORT: "9310"
       DATA_DIR: /data
