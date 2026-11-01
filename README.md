@@ -64,7 +64,16 @@ The app listens on `127.0.0.1:9310`. **HTTPS is required**, including for the se
 }
 ```
 
-Clients vary in configuration format. This server uses bearer authentication, **not OAuth**, so clients that require OAuth need another auth integration. Your own deployment URL and generated token are required; there is no shared hosted endpoint.
+Clients vary in configuration format. Your own deployment URL is required; there is no shared hosted endpoint. The server accepts two kinds of credentials on `/mcp`:
+
+- **OAuth** for ChatGPT and Claude custom connectors, which cannot send a fixed header. The app registers itself and opens a consent page where you enter your **owner key** (the `/owner` unlock key) once. Access tokens last an hour and renew automatically for 90 days; clients and tokens (hashed) are kept in the data directory.
+- **The generated bearer token** for clients that can send headers (Claude Code, Cursor, the Claude Desktop config file via `mcp-remote`, scripts).
+
+**ChatGPT:** Plugins → **+** → **Add custom MCP server** → URL `https://YOUR_DOMAIN/mcp`, authentication **OAuth** (no client credentials) → **Create** → enter the owner key → **Allow access**. Mention `@Hyperpure` in a chat.
+
+**Claude** (web, Desktop, mobile): Settings → **Connectors** → **Add custom connector** (Team/Enterprise: Organization settings → Connectors) → URL `https://YOUR_DOMAIN/mcp` → **Continue** → authentication **Sign in now**, OAuth client **Register automatically** → **Add** → enter the owner key → **Allow access**.
+
+`node test/oauth-flow.mjs` (with `BASE` and `OWNER_KEY` set) checks the whole OAuth flow against a running server.
 
 ## Tools
 

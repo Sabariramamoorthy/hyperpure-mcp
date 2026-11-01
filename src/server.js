@@ -3,7 +3,13 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
+import {
+  mcpAuthRouter,
+  getOAuthProtectedResourceMetadataUrl,
+} from '@modelcontextprotocol/sdk/server/auth/router.js';
+import { requireBearerAuth } from '@modelcontextprotocol/sdk/server/auth/middleware/bearerAuth.js';
 import { z } from 'zod';
+import { OwnerOAuthProvider } from './oauth.js';
 import { HyperpureBrowser } from './browser.js';
 import { toolResult, toolError, toolMessageDecorator } from './responses.js';
 import { JsonStore, ApprovalStore, ServiceError, token, sameSecret } from './core.js';
@@ -26,6 +32,18 @@ if (
 const store = new JsonStore(config.dataDir),
   browser = new HyperpureBrowser(config, store);
 const approvals = new ApprovalStore(store);
+const mcpUrl = new URL('/mcp', config.publicOrigin);
+const oauth = new OwnerOAuthProvider({
+  store,
+  ownerKey: config.ownerKey,
+  staticToken: config.mcpToken,
+  resource: mcpUrl.href,
+});
+await oauth.load();
+// OAuth discovery, registration and token calls come from other origins by design (CORS,
+// protected by PKCE); every other route keeps the same-origin check.
+const crossOriginOAuth = /^\/(\.well-known\/|register$|token$|revoke$)/;
+const consentPage = /^\/(authorize|oauth\/approve)$/;
 const app = express();
 app.disable('x-powered-by');
 app.set('trust proxy', 'loopback');
@@ -35,16 +53,34 @@ app.use((req, res, next) => {
     'X-Content-Type-Options': 'nosniff',
     'X-Frame-Options': 'DENY',
     'Referrer-Policy': 'no-referrer',
-    'Content-Security-Policy':
-      "default-src 'self'; script-src 'self'; style-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
+    // The consent page redirects to the MCP client after the form post, which form-action
+    // would block, and it carries its own inline styles.
+    'Content-Security-Policy': consentPage.test(req.path)
+      ? "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'"
+      : "default-src 'self'; script-src 'self'; style-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
   });
   const host = new URL(config.publicOrigin).host;
   if (![host, '127.0.0.1:9310', 'localhost:9310'].includes(req.headers.host))
     return res.sendStatus(403);
-  if (req.headers.origin && req.headers.origin !== config.publicOrigin) return res.sendStatus(403);
+  if (
+    req.headers.origin &&
+    req.headers.origin !== config.publicOrigin &&
+    !crossOriginOAuth.test(req.path)
+  )
+    return res.sendStatus(403);
   next();
 });
 app.use(express.json({ limit: '8kb' }));
+app.use(
+  mcpAuthRouter({
+    provider: oauth,
+    issuerUrl: new URL(config.publicOrigin),
+    resourceServerUrl: mcpUrl,
+    scopesSupported: ['hyperpure'],
+    resourceName: 'Hyperpure MCP',
+  }),
+);
+app.use(oauth.approvalRouter());
 const error = (e, res) =>
   res.status(e instanceof ServiceError ? 409 : 503).json({
     error: e.code || 'SITE_UNAVAILABLE',
@@ -269,13 +305,13 @@ function mcp() {
   );
   return server;
 }
-app.use('/mcp', (req, res, next) => {
-  if (!sameSecret(req.headers.authorization, `Bearer ${config.mcpToken}`)) {
-    res.setHeader('WWW-Authenticate', 'Bearer realm="hyperpure"');
-    return res.sendStatus(401);
-  }
-  next();
-});
+app.use(
+  '/mcp',
+  requireBearerAuth({
+    verifier: oauth,
+    resourceMetadataUrl: getOAuthProtectedResourceMetadataUrl(mcpUrl),
+  }),
+);
 app.post('/mcp', async (req, res) => {
   const server = mcp(),
     transport = new StreamableHTTPServerTransport({
