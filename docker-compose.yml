@@ -1,5 +1,7 @@
 # Openship deploy stack (CloudShift HP Mini Elite). TLS ends at the VPS Caddy; the Openship
-# edge forwards to the app on 9310. Every value comes from Openship service env.
+# edge forwards to the app on 9310. All application config (PUBLIC_ORIGIN, MCP_TOKEN, OWNER_KEY,
+# HYPERPURE_MOBILE, OUTLET_NAME, OUTLET_ADDRESS) is read at runtime from the Infisical project
+# below; only the read-only machine identity is set on the service.
 # EXACTLY ONE instance: one persistent browser profile per Hyperpure account.
 services:
   app:
@@ -11,22 +13,27 @@ services:
       NODE_ENV: production
       # Chromium's sandbox needs user namespaces, which Docker's default seccomp profile blocks,
       # and Openship does not apply security_opt. The browser runs as non-root pwuser instead.
-      CHROMIUM_SANDBOX: "false"
-      HOST: "0.0.0.0"
-      PORT: "9310"
+      CHROMIUM_SANDBOX: 'false'
+      HOST: '0.0.0.0'
+      PORT: '9310'
       DATA_DIR: /data
-      PUBLIC_ORIGIN: ${PUBLIC_ORIGIN}
-      HYPERPURE_MOBILE: ${HYPERPURE_MOBILE}
-      MCP_TOKEN: ${MCP_TOKEN}
-      OWNER_KEY: ${OWNER_KEY}
-      OUTLET_NAME: ${OUTLET_NAME:-}
-      OUTLET_ADDRESS: ${OUTLET_ADDRESS:-}
+      INFISICAL_URL: ${INFISICAL_URL:-https://infisical.app.cloudshiftsolutions.in}
+      INFISICAL_PROJECT_ID: ${INFISICAL_PROJECT_ID}
+      INFISICAL_ENVIRONMENT: ${INFISICAL_ENVIRONMENT:-prod}
+      INFISICAL_CLIENT_ID: ${INFISICAL_CLIENT_ID}
+      INFISICAL_CLIENT_SECRET: ${INFISICAL_CLIENT_SECRET}
     ports:
-      - "${APP_PORT:-9310}:9310"
+      - '${APP_PORT:-9310}:9310'
     volumes:
       - hyperpure-data:/data
     healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:9310/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:9310/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
       interval: 30s
       timeout: 5s
       retries: 5

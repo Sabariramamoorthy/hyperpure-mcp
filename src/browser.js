@@ -104,6 +104,11 @@ export class HyperpureBrowser {
   }
   async requestOtp() {
     if (this.state === 'READY') throw new ServiceError('ALREADY_LOGGED_IN');
+    if (!this.config.mobile)
+      throw new ServiceError(
+        'SETUP_REQUIRED',
+        'Set HYPERPURE_MOBILE (10 digits) in the server configuration before logging in.',
+      );
     const now = Date.now(),
       limits = await this.store.read('otp-limits', { sent: [] });
     limits.sent = limits.sent.filter((t) => now - t < 3600_000);

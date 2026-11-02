@@ -3,6 +3,6 @@
   "framework": "docker",
   "runtime": "docker",
   "composePath": "docker-compose.yml",
-  "startCommand": "node scripts/docker-start.mjs",
+  "startCommand": "node src/server.js",
   "port": 9310
 }

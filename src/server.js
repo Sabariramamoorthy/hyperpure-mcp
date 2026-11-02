@@ -13,24 +13,40 @@ import { OwnerOAuthProvider } from './oauth.js';
 import { HyperpureBrowser } from './browser.js';
 import { toolResult, toolError, toolMessageDecorator } from './responses.js';
 import { JsonStore, ApprovalStore, ServiceError, token, sameSecret } from './core.js';
+import { loadConfig } from './infisical.js';
+import { bindingFromEnv } from './setup.js';
 
 process.umask(0o077);
+await loadConfig([
+  'PUBLIC_ORIGIN',
+  'MCP_TOKEN',
+  'OWNER_KEY',
+  'HYPERPURE_MOBILE',
+  'OUTLET_NAME',
+  'OUTLET_ADDRESS',
+]);
 const config = {
   dataDir: process.env.DATA_DIR || './data',
   publicOrigin: process.env.PUBLIC_ORIGIN,
-  mobile: process.env.HYPERPURE_MOBILE,
+  // Optional at startup: OTP login reports SETUP_REQUIRED until it is configured.
+  mobile: /^\d{10}$/.test(process.env.HYPERPURE_MOBILE || '') ? process.env.HYPERPURE_MOBILE : null,
   mcpToken: process.env.MCP_TOKEN,
   ownerKey: process.env.OWNER_KEY,
 };
 if (
   !config.publicOrigin ||
   !/^https:\/\//.test(config.publicOrigin) ||
-  !/^\d{10}$/.test(config.mobile || '') ||
   [config.mcpToken, config.ownerKey].some((v) => !v || v.length < 32)
 )
   throw Error('Required configuration missing or invalid');
-const store = new JsonStore(config.dataDir),
-  browser = new HyperpureBrowser(config, store);
+const store = new JsonStore(config.dataDir);
+// OUTLET_NAME / OUTLET_ADDRESS (env or Infisical) override the binding written by `npm run configure`.
+const outlet = await bindingFromEnv(store);
+if (!outlet && !(await store.read('binding', null)))
+  console.log(
+    JSON.stringify({ event: 'binding_missing', hint: 'Set OUTLET_NAME and OUTLET_ADDRESS' }),
+  );
+const browser = new HyperpureBrowser(config, store);
 const approvals = new ApprovalStore(store);
 const mcpUrl = new URL('/mcp', config.publicOrigin);
 const oauth = new OwnerOAuthProvider({

@@ -42,6 +42,8 @@ Setup asks for your HTTPS origin, mobile number, and the **exact outlet name and
 | `.secrets/owner-access.txt` | Owner page URL and unlock key.                              |
 | `.secrets/connection.json`  | MCP client configuration with its bearer token.             |
 
+**Config from Infisical (optional).** Instead of `.env`, set `INFISICAL_URL`, `INFISICAL_PROJECT_ID`, `INFISICAL_CLIENT_ID` and `INFISICAL_CLIENT_SECRET` (a universal-auth machine identity with read access to that project only; `INFISICAL_ENVIRONMENT` defaults to `prod`) and keep `PUBLIC_ORIGIN`, `MCP_TOKEN`, `OWNER_KEY`, `HYPERPURE_MOBILE`, `OUTLET_NAME` and `OUTLET_ADDRESS` in Infisical. The server reads them at startup, writes the outlet binding from `OUTLET_NAME`/`OUTLET_ADDRESS`, and checks every minute; a changed value restarts the server to apply it. The mobile number may be left empty until you are ready: OTP login reports `SETUP_REQUIRED` meanwhile.
+
 Setup refuses to overwrite existing configuration. See [`.env.example`](.env.example) for configuration reference. Browser profiles and operational data must stay outside version control.
 
 The app listens on `127.0.0.1:9310`. **HTTPS is required**, including for the secure owner cookie. Finish the [Linux deployment guide](docs/deployment.md) before opening the owner page; there is no insecure HTTP development bypass. `/healthz` reports process availability, not account login validity.

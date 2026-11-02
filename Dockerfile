@@ -8,8 +8,7 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force
 COPY src ./src
-COPY scripts/docker-start.mjs ./scripts/docker-start.mjs
 RUN mkdir -p /data && chown -R pwuser:pwuser /data
 USER pwuser
 EXPOSE 9310
-CMD ["node", "scripts/docker-start.mjs"]
+CMD ["node", "src/server.js"]

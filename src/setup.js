@@ -6,6 +6,22 @@ const normalize = (value) =>
   String(value || '')
     .replace(/\s+/g, ' ')
     .trim();
+const bindingOf = (name, address) => ({
+  selector: '[class*="Header_headerAddressInfo"]',
+  text: `${name}: ${address}`,
+  parts: [name, address],
+});
+
+/** Writes the expected-outlet binding from OUTLET_NAME / OUTLET_ADDRESS when both are set. */
+export async function bindingFromEnv(store, env = process.env) {
+  const name = normalize(env.OUTLET_NAME).replace(/:$/, ''),
+    address = normalize(env.OUTLET_ADDRESS);
+  if (!name || !address) return null;
+  const binding = bindingOf(name, address);
+  await store.write('binding', binding);
+  return binding;
+}
+
 export async function configure({
   directory = process.cwd(),
   origin,
@@ -59,15 +75,7 @@ export async function configure({
     Object.entries(env)
       .map(([k, v]) => `${k}='${v.replaceAll("'", "'\\''")}'`)
       .join('\n') + '\n',
-    JSON.stringify(
-      {
-        selector: '[class*="Header_headerAddressInfo"]',
-        text: `${name}: ${address}`,
-        parts: [name, address],
-      },
-      null,
-      2,
-    ) + '\n',
+    JSON.stringify(bindingOf(name, address), null, 2) + '\n',
     JSON.stringify(
       {
         mcpServers: {
